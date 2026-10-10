@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAG Tv - Bangladesh, India & Pakistan Live TV Channels</title>
+  <meta name="description" content="Stream live TV channels from Bangladesh, India, and Pakistan on MAG Tv. Features Day & Night mode, sports, news, entertainment, religious channels, selectable resolutions from 360p to 4K, and multilingual support in English, Bangla, Hindi, and Urdu.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📺</text></svg>">
+  
+  <!-- HLS.js for Live Streaming -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app-wrapper">
+
+    <!-- Top Navigation & Header -->
+    <header class="site-header">
+      <div class="container">
+        <!-- Top Bar: Brand, Search, Theme, Language -->
+        <div class="header-top">
+          <!-- Logo & Title -->
+          <a href="/" class="brand-logo-link" id="brandLogo">
+            <div class="logo-badge mag-logo-badge">
+              <span class="mag-logo-text">MAG</span>
+            </div>
+            <div class="brand-text">
+              <span class="brand-title">
+                <span data-i18n="appTitle">MAG Tv</span>
+                <span class="live-pill"><span class="pulse-dot"></span> LIVE</span>
+              </span>
+              <span class="brand-subtitle" data-i18n="appSubtitle">HD Streaming • Bangladesh, India & Pakistan</span>
+            </div>
+          </a>
+
+          <!-- Live Search Bar -->
+          <div class="header-search">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input 
+                type="text" 
+                id="channelSearchInput" 
+                class="search-input" 
+                data-i18n-placeholder="searchPlaceholder" 
+                placeholder="Search channels by name, genre... (Press '/' to search)"
+                autocomplete="off"
+              />
+              <button id="clearSearchBtn" class="clear-search-btn hidden" title="Clear Search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+              <kbd class="search-shortcut-badge">/</kbd>
+            </div>
+          </div>
+
+          <!-- Actions: Custom M3U8, Language, Day/Night Mode -->
+          <div class="header-actions">
+            <!-- Custom Stream Modal Trigger -->
+            <button id="openCustomModalBtn" class="btn btn-outline" style="padding: 0.5rem 0.85rem; font-size: 0.82rem;" title="Play Custom M3U8 Link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="16" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+              </svg>
+              <span data-i18n="addCustom">Custom M3U8</span>
+            </button>
+
+            <!-- Language Dropdown (English, Bangla, Hindi, Urdu) -->
+            <div class="lang-selector-wrapper">
+              <select id="languageSelector" class="lang-select" aria-label="Select Language">
+                <option value="en">🇺🇸 English</option>
+                <option value="bn">🇧🇩 বাংলা (Bangla)</option>
+                <option value="hi">🇮🇳 हिन्दी (Hindi)</option>
+                <option value="ur">🇵🇰 اردو (Urdu)</option>
+              </select>
+            </div>
+
+            <!-- Day & Night Mode Toggle -->
+            <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle Day and Night Mode" title="Toggle Day/Night Mode">
+              <!-- Sun Icon for Light Mode Switch -->
+              <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+              <!-- Moon Icon for Dark Mode Switch -->
+              <svg class="moon-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+              <span class="theme-text" data-i18n="dayMode">Light Mode</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Category Nav Buttons Bar (All channels, sports, news, religious, entertainment, others) -->
+        <nav class="header-nav-categories" aria-label="Channel Categories">
+          <div class="nav-buttons-group">
+            <!-- 1. All Channels -->
+            <button class="nav-category-btn active" data-category="all" id="navAllBtn">
+              <span class="cat-icon">🌐</span>
+              <span data-i18n="allChannels">All Channels</span>
+            </button>
+
+            <!-- 2. Sports -->
+            <button class="nav-category-btn" data-category="sports" id="navSportsBtn">
+              <span class="cat-icon">🏆</span>
+              <span data-i18n="sports">Sports</span>
+            </button>
+
+            <!-- 3. News -->
+            <button class="nav-category-btn" data-category="news" id="navNewsBtn">
+              <span class="cat-icon">📰</span>
+              <span data-i18n="news">News</span>
+            </button>
+
+            <!-- 4. Religious -->
+            <button class="nav-category-btn" data-category="religious" id="navReligiousBtn">
+              <span class="cat-icon">🕌</span>
+              <span data-i18n="religious">Religious</span>
+            </button>
+
+            <!-- 5. Entertainment -->
+            <button class="nav-category-btn" data-category="entertainment" id="navEntertainmentBtn">
+              <span class="cat-icon">🎬</span>
+              <span data-i18n="entertainment">Entertainment</span>
+            </button>
+
+            <!-- 6. Others -->
+            <button class="nav-category-btn" data-category="others" id="navOthersBtn">
+              <span class="cat-icon">✨</span>
+              <span data-i18n="others">Others</span>
+            </button>
+          </div>
+
+          <!-- Country Filter Pills (Bangladesh, India, Pakistan, All) & Favorites Filter -->
+          <div class="nav-aux-group">
+            <button class="country-pill active" data-country="all">
+              <span>🌐</span> <span data-i18n="allCountries">All Regions</span>
+            </button>
+            <button class="country-pill" data-country="bd">
+              <span>🇧🇩</span> <span data-i18n="bangladesh">Bangladesh</span>
+            </button>
+            <button class="country-pill" data-country="in">
+              <span>🇮🇳</span> <span data-i18n="india">India</span>
+            </button>
+            <button class="country-pill" data-country="pk">
+              <span>🇵🇰</span> <span data-i18n="pakistan">Pakistan</span>
+            </button>
+
+            <!-- Favorites Filter Pill -->
+            <button class="fav-filter-btn" id="filterFavoritesBtn" title="Show Bookmarked Channels">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              <span data-i18n="favoritesTitle">Favorites</span>
+              <span class="fav-count-badge" id="favCountBadge">0</span>
+            </button>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <div class="container">
+
+        <!-- Recently Watched Quick Shelf -->
+        <section class="recent-shelf hidden" id="recentChannelsSection">
+          <div class="recent-shelf-header">
+            <span class="recent-shelf-title" data-i18n="recentlyWatched">Recently Watched</span>
+            <button class="clear-recent-btn" id="clearRecentBtn" data-i18n="clearRecent">Clear</button>
+          </div>
+          <div class="recent-pills-list" id="recentChannelsList">
+            <!-- Dynamic recent channel pills -->
+          </div>
+        </section>
+
+        <!-- Live Video Player Card -->
+        <section class="player-section" id="playerSection">
+          <div class="player-card" id="playerContainer">
+            <!-- Video Container -->
+            <div class="player-video-container">
+              <video 
+                id="liveVideo" 
+                class="live-video-element" 
+                playsinline 
+                autoplay
+                poster=""
+              ></video>
+
+              <!-- Top Info Overlay -->
+              <div class="player-top-overlay">
+                <div class="player-channel-meta">
+                  <img id="playerChannelLogo" src="https://api.dicebear.com/7.x/identicon/svg?seed=LiveTV" alt="Channel Logo" class="player-logo-thumb" />
+                  <div class="player-title-box">
+                    <h3 id="playerChannelTitle" class="player-channel-title">Loading Stream...</h3>
+                    <div class="player-badge-row">
+                      <span id="streamStatusBadge" class="status-badge status-online">
+                        <span class="status-dot"></span>
+                        <span class="status-text" data-i18n="statusOnline">Online</span>
+                      </span>
+                      <span id="playerResolutionBadge" class="badge resolution-badge">Auto HD</span>
+                      <span id="playerChannelCategory" class="badge cat-news" data-i18n="news">News</span>
+                      <span id="playerChannelCountry" class="country-tag">🇧🇩 Bangladesh</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="player-stats-meta">
+                  <div class="viewer-pill">
+                    <span class="pulse-dot" style="background:#ef4444;"></span>
+                    <span id="playerViewerCount">3,420 viewers</span>
+                  </div>
+                  <!-- Favorite Button -->
+                  <button id="playerFavToggleBtn" class="player-fav-btn" title="Add to Favorites" aria-label="Favorite Channel">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Loading Spinner -->
+              <div id="playerLoadingSpinner" class="player-loading-spinner hidden">
+                <div class="spinner"></div>
+              </div>
+
+              <!-- Error State Overlay -->
+              <div id="playerErrorOverlay" class="player-error-overlay hidden">
+                <div class="error-icon">📡</div>
+                <h4 id="playerErrorTitle" class="error-title" data-i18n="streamErrorTitle">Stream Temporarily Unavailable</h4>
+                <p id="playerErrorDesc" class="error-desc" data-i18n="streamErrorDesc">
+                  This broadcaster stream could not be loaded directly (may have CORS restriction or regional lock).
+                </p>
+                <div class="error-actions">
+                  <button id="playerSwitchProxyBtn" class="btn btn-primary" data-i18n="tryProxyBtn">Try CORS Proxy</button>
+                  <button id="playerRetryBtn" class="btn btn-outline" data-i18n="retryBtn">Retry Stream</button>
+                  <button id="playerTestStreamBtn" class="btn btn-outline" data-i18n="tryTestStream">Play Test Stream</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Player Bottom Controls Bar -->
+            <div class="player-bottom-controls">
+              <div class="controls-left">
+                <!-- Play/Pause -->
+                <button id="playerPlayPauseBtn" class="control-btn" title="Pause (Space)">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16" rx="1.5" />
+                    <rect x="14" y="4" width="4" height="16" rx="1.5" />
+                  </svg>
+                </button>
+
+                <!-- Mute & Volume Slider -->
+                <div class="volume-control-wrapper">
+                  <button id="playerMuteBtn" class="control-btn" title="Mute / Unmute (M)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                    </svg>
+                  </button>
+                  <input type="range" id="playerVolumeSlider" class="volume-slider" min="0" max="1" step="0.05" value="1" title="Volume Slider" />
+                </div>
+
+                <!-- Reload Stream -->
+                <button id="playerReloadBtn" class="control-btn" title="Reload Stream" data-i18n-title="reload">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="controls-right">
+                <!-- Direct / CORS Proxy Toggle -->
+                <button id="playerProxyToggleBtn" class="proxy-toggle-btn" title="Toggle CORS Proxy mode" data-i18n-title="proxyTooltip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                    <line x1="6" y1="6" x2="6.01" y2="6" />
+                    <line x1="6" y1="18" x2="6.01" y2="18" />
+                  </svg>
+                  <span class="proxy-mode-text" data-i18n="directStream">Direct Stream</span>
+                </button>
+
+                <!-- Resolution Selector (360p to 4K) -->
+                <div class="quality-selector-wrapper" id="qualitySelectorWrapper">
+                  <button id="playerQualityBtn" class="control-btn quality-btn" title="Select Resolution (360p - 4K)" aria-label="Resolution" data-i18n-title="qualitySelector">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    <span id="playerQualityText" class="quality-label-text">Auto</span>
+                  </button>
+                  <div id="qualityMenuDropdown" class="quality-dropdown hidden">
+                    <div class="quality-dropdown-header">
+                      <span data-i18n="qualitySelector">Resolution</span>
+                    </div>
+                    <div class="quality-options-list" id="qualityOptionsList">
+                      <button class="quality-option active" data-res="auto" data-i18n="autoQuality">Auto (Adaptive)</button>
+                      <button class="quality-option" data-res="2160">4K Ultra HD (2160p)</button>
+                      <button class="quality-option" data-res="1440">2K QHD (1440p)</button>
+                      <button class="quality-option" data-res="1080">1080p Full HD</button>
+                      <button class="quality-option" data-res="720">720p HD</button>
+                      <button class="quality-option" data-res="480">480p SD</button>
+                      <button class="quality-option" data-res="360">360p Low</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Picture in Picture (PiP) -->
+                <button id="playerPipBtn" class="control-btn" title="Picture in Picture" data-i18n-title="pip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" />
+                  </svg>
+                </button>
+
+                <!-- Theater Mode -->
+                <button id="playerTheaterBtn" class="control-btn" title="Theater Mode (T)" data-i18n-title="theater">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <line x1="2" y1="9" x2="22" y2="9" />
+                  </svg>
+                </button>
+
+                <!-- Fullscreen -->
+                <button id="playerFullscreenBtn" class="control-btn" title="Fullscreen (F)" data-i18n-title="fullscreen">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Channel Directory & Grid -->
+        <section class="channels-section">
+          <div class="channels-section-header">
+            <h2 class="channels-section-title" data-i18n="featuredChannels">Channels Directory</h2>
+            <span class="channels-count-label" id="channelCountLabel">Loading channels...</span>
+          </div>
+
+          <!-- Channel Grid -->
+          <div class="channel-grid" id="channelGrid">
+            <!-- Dynamic channel cards populated by app.js -->
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="container footer-content">
+        <p>© 2026 MAG Tv • Live Streaming Web App</p>
+        <div class="footer-links">
+          <button id="openShortcutsModalBtn" class="footer-btn-link">⌨️ <span data-i18n="keyboardHelp">Keyboard Shortcuts</span></button>
+          <span>Bangladesh 🇧🇩 • India 🇮🇳 • Pakistan 🇵🇰</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Custom M3U8 Stream Modal -->
+    <div id="customStreamModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" data-i18n="customModalTitle">Play Custom Stream URL</h3>
+          <button id="closeCustomModalBtn" class="modal-close-btn">&times;</button>
+        </div>
+        <p class="modal-desc" data-i18n="customModalDesc">Paste any public HLS (.m3u8) live stream link to play directly:</p>
+        <form id="customStreamForm">
+          <div class="form-group">
+            <label class="form-label" for="customChannelName" data-i18n="channelNameLabel">Channel Name</label>
+            <input type="text" id="customChannelName" class="form-input" placeholder="e.g. My Favorite News HD" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="customStreamUrl" data-i18n="channelUrlLabel">M3U8 Stream URL</label>
+            <input type="url" id="customStreamUrl" class="form-input" placeholder="https://example.com/live/playlist.m3u8" required />
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="cancelCustomModalBtn" class="btn btn-outline" data-i18n="cancelBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-i18n="playCustomBtn">Play Now</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcutsModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" data-i18n="shortcutsTitle">Keyboard Controls</h3>
+          <button id="closeShortcutsModalBtn" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="shortcuts-grid">
+          <div class="shortcut-row">
+            <span data-i18n="shortcutSpace">Play / Pause</span>
+            <kbd class="shortcut-kbd">Space</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span data-i18n="shortcutMute">Mute / Unmute</span>
+            <kbd class="shortcut-kbd">M</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span data-i18n="shortcutFull">Toggle Fullscreen</span>
+            <kbd class="shortcut-kbd">F</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span data-i18n="shortcutTheater">Toggle Theater Mode</span>
+            <kbd class="shortcut-kbd">T</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span data-i18n="shortcutSearch">Quick Search</span>
+            <kbd class="shortcut-kbd">/</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span data-i18n="shortcutEsc">Close modal / Exit Search</span>
+            <kbd class="shortcut-kbd">Esc</kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript Scripts -->
+  <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/player.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
