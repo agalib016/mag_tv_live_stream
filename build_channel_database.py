@@ -1,410 +1,532 @@
-import urllib.request
-import re
 import json
 import os
+import requests
+from urllib.parse import quote
+from concurrent.futures import ThreadPoolExecutor
 
-COUNTRIES = {
-    'bd': {'name': 'Bangladesh', 'flag': '🇧🇩', 'lang': 'bangla'},
-    'in': {'name': 'India', 'flag': '🇮🇳', 'lang': 'hindi'},
-    'pk': {'name': 'Pakistan', 'flag': '🇵🇰', 'lang': 'urdu'}
-}
+CHANNELS_PATH = os.path.join(os.path.dirname(__file__), 'channels.json')
 
-CATEGORY_MAP = {
-    'sports': ['sport', 'cricket', 'football'],
-    'news': ['news', 'weather', 'business', 'press'],
-    'religious': ['relig', 'islam', 'quran', 'azan', 'hindu', 'sikh', 'peace', 'bhakti', 'madani', 'vedic', 'satsang', 'aastha', 'sanskar', 'paigham'],
-    'entertainment': ['entertainment', 'movie', 'cinema', 'music', 'comedy', 'drama', 'series', 'soap'],
-}
+CURATED_CHANNELS = [
+    # --- BANGLADESH ---
+    {
+        'id': 'curated_bd_somoy',
+        'name': 'Somoy TV',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/0/07/Somoy_TV_logo.svg/300px-Somoy_TV_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://tvsen5.aynaott.com/somoytv/index.m3u8',
+        'backup_urls': [
+            'http://tvsen5.aynascope.net/somoytv/index.m3u8',
+            'https://stream.shariarsuvo.com/hls5/somoy.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_dbc',
+        'name': 'DBC News HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/b/b3/DBC_News_logo.svg/300px-DBC_News_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://tvsen6.aynaott.com/pF66Tkz0qFwP2aMMqHyt/index.m3u8',
+        'backup_urls': [
+            'http://tvsen5.aynascope.net/dbcnews/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_ekattor',
+        'name': 'Ekattor TV HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/2/23/Ekattor_TV_logo.svg/300px-Ekattor_TV_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://tvsen6.aynaott.com/EWDrV5QskgarZEUBb3pU/index.m3u8',
+        'backup_urls': [
+            'http://tvsen5.aynascope.net/ekattortv/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_independent',
+        'name': 'Independent TV',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/9/90/Independent_Television_%28Bangladesh%29_logo.svg/300px-Independent_Television_%28Bangladesh%29_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://tvsen6.aynaott.com/Wef2Vj67njeYGDqQNFB9/index.m3u8',
+        'backup_urls': [
+            'http://tvsen5.aynascope.net/independenttv/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_maasranga',
+        'name': 'Maasranga TV HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Maasranga_TV_logo.svg/300px-Maasranga_TV_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'General',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'http://tvsen5.aynascope.net/maasrangatv/index.m3u8',
+        'backup_urls': [
+            'https://tvsen5.aynaott.com/maasrangatv/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_banglavision',
+        'name': 'Bangla Vision',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/0/0d/Banglavision_logo.svg/300px-Banglavision_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'General',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://tvsen5.aynaott.com/banglavision/index.m3u8',
+        'backup_urls': [
+            'http://tvsen5.aynascope.net/banglavision/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_boishakhi',
+        'name': 'Boishakhi TV',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/3/36/Boishakhi_Television_logo.svg/300px-Boishakhi_Television_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'General',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://boishakhi.sonarbanglatv.com/boishakhi/boishakhitv/index.m3u8',
+        'backup_urls': [
+            'http://tvsen5.aynascope.net/boishakhitv/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_ekushey',
+        'name': 'Ekushey TV',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/b/b8/Ekushey_Television_logo.svg/300px-Ekushey_Television_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'General',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://ekusheyserver.com/etvlivesn.m3u8',
+        'backup_urls': [],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_duronto',
+        'name': 'Duronto TV (Kids & Family)',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/2/2f/Duronto_TV_logo.svg/300px-Duronto_TV_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'Kids',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://tvsen6.aynaott.com/6xyZ3N4oHv2KBJdB6W4p/index.m3u8',
+        'backup_urls': [],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_atnbangla',
+        'name': 'ATN Bangla',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/4/4e/ATN_Bangla_logo.svg/300px-ATN_Bangla_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'General',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'http://tvsen5.aynascope.net/atnbangla/index.m3u8',
+        'backup_urls': [],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_ntv',
+        'name': 'NTV Bangladesh',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/8/87/NTV_Bangladesh_logo.svg/300px-NTV_Bangladesh_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'General',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://tvsen5.aynaott.com/xV4jEKf3D9zc/index.m3u8',
+        'backup_urls': [],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_rtv',
+        'name': 'RTV Bangladesh',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/5/5e/RTV_Bangladesh_logo.svg/300px-RTV_Bangladesh_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'General',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'http://tvsen5.aynascope.net/RtvHD/index.m3u8',
+        'backup_urls': [],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_peace',
+        'name': 'Peace TV Bangla',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/7/7e/Peace_TV_Bangla_Logo.jpg/250px-Peace_TV_Bangla_Logo.jpg',
+        'category': 'religious',
+        'group': 'Religious',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'https://dzkyvlfyge.erbvr.com/PeaceTvBangla/index.m3u8',
+        'backup_urls': [
+            'https://peacetv.vedge.infomaniak.com/live/peacetvbangla/playlist.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_starjalsha',
+        'name': 'Star Jalsha HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f3/Star_Jalsha_logo.svg/300px-Star_Jalsha_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'Drama',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'http://103.151.60.162:2122/play/a00w/index.m3u8?hls',
+        'backup_urls': [
+            'https://da86m1sqpm3o0.cloudfront.net/28072023/smil:starjalsha.smil/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
+    {
+        'id': 'curated_bd_zeebangla',
+        'name': 'Zee Bangla',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/1/1b/Zee_Bangla_logo.svg/300px-Zee_Bangla_logo.svg.png',
+        'category': 'entertainment',
+        'group': 'Drama',
+        'country': 'Bangladesh',
+        'country_code': 'bd',
+        'flag': '🇧🇩',
+        'stream_url': 'http://103.151.60.162:2122/play/a011/index.m3u8?hls',
+        'backup_urls': [
+            'https://d1g8wgjurz8via.cloudfront.net/bpk-tv/ColorsHD/default/index.m3u8'
+        ],
+        'language': 'bangla',
+        'featured': True
+    },
 
-def classify_channel(name, group):
-    combined = f"{name} {group}".lower()
-    for cat, keywords in CATEGORY_MAP.items():
-        if any(kw in combined for kw in keywords):
-            return cat
-    return 'others'
+    # --- INDIA ---
+    {
+        'id': 'curated_in_indiatoday',
+        'name': 'India Today HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/India_Today_logo.svg/300px-India_Today_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'India',
+        'country_code': 'in',
+        'flag': '🇮🇳',
+        'stream_url': 'https://feeds.intoday.in/hltapps/api/master.m3u8',
+        'backup_urls': [],
+        'language': 'hindi',
+        'featured': True
+    },
+    {
+        'id': 'curated_in_wion',
+        'name': 'WION World News',
+        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/WION_logo.svg/300px-WION_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'India',
+        'country_code': 'in',
+        'flag': '🇮🇳',
+        'stream_url': 'https://d7x8z4yuq42qn.cloudfront.net/index_7.m3u8',
+        'backup_urls': [],
+        'language': 'english',
+        'featured': True
+    },
+    {
+        'id': 'curated_in_newsnation',
+        'name': 'News Nation',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/2/25/News_Nation_logo.png/300px-News_Nation_logo.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'India',
+        'country_code': 'in',
+        'flag': '🇮🇳',
+        'stream_url': 'https://d3qs3d2rkhfqrt.cloudfront.net/out/v1/6cd2f649739a45ca9de1daf81cc7d0f2/index.m3u8',
+        'backup_urls': [],
+        'language': 'hindi',
+        'featured': True
+    },
+    {
+        'id': 'curated_in_9xjalwa',
+        'name': '9X Jalwa HD',
+        'logo': 'https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_9X_JALWA/images/LOGO_HD/image.png',
+        'category': 'entertainment',
+        'group': 'Music',
+        'country': 'India',
+        'country_code': 'in',
+        'flag': '🇮🇳',
+        'stream_url': 'https://wiselp.wiseplayout.com/9X_Jalwa/master.m3u8',
+        'backup_urls': [],
+        'language': 'hindi',
+        'featured': True
+    },
+    {
+        'id': 'curated_in_redbull',
+        'name': 'Red Bull TV (Live Sports)',
+        'logo': 'https://resources.redbull.com/logos/redbulltv/logo.svg',
+        'category': 'sports',
+        'group': 'Sports',
+        'country': 'Global',
+        'country_code': 'in',
+        'flag': '🏆',
+        'stream_url': 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8',
+        'backup_urls': [],
+        'language': 'english',
+        'featured': True
+    },
+    {
+        'id': 'curated_in_nasatv',
+        'name': 'NASA TV HD (Cosmos & Science)',
+        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/NASA_logo.svg/300px-NASA_logo.svg.png',
+        'category': 'others',
+        'group': 'Science',
+        'country': 'Global',
+        'country_code': 'in',
+        'flag': '🚀',
+        'stream_url': 'https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8',
+        'backup_urls': [],
+        'language': 'english',
+        'featured': True
+    },
+    {
+        'id': 'curated_in_trtworld',
+        'name': 'TRT World Live',
+        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/TRT_World_logo.svg/300px-TRT_World_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Global',
+        'country_code': 'in',
+        'flag': '🌐',
+        'stream_url': 'https://tv-trtworld.medya.trt.com.tr/master.m3u8',
+        'backup_urls': [],
+        'language': 'english',
+        'featured': True
+    },
+    {
+        'id': 'curated_in_dwnews',
+        'name': 'DW News English',
+        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Deutsche_Welle_logo_2012.svg/300px-Deutsche_Welle_logo_2012.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Global',
+        'country_code': 'in',
+        'flag': '🌐',
+        'stream_url': 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8',
+        'backup_urls': [],
+        'language': 'english',
+        'featured': True
+    },
 
-def clean_channel_name(name):
-    name = re.sub(r'\s*\(\d+p\)', '', name, flags=re.IGNORECASE)
-    name = re.sub(r'\s*\[.*?\]', '', name)
-    name = re.sub(r'\s*\(.*?fps\)', '', name, flags=re.IGNORECASE)
-    name = re.sub(r'\s*\(Backup\)', '', name, flags=re.IGNORECASE)
-    return name.strip()
+    # --- PAKISTAN ---
+    {
+        'id': 'curated_pk_asports',
+        'name': 'A Sports HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/A_Sports_HD_logo.svg/300px-A_Sports_HD_logo.svg.png',
+        'category': 'sports',
+        'group': 'Sports',
+        'country': 'Pakistan',
+        'country_code': 'pk',
+        'flag': '🇵🇰',
+        'stream_url': 'https://cdn4.mjunoon.tv:8087/streamtest/145M/chunks.m3u8',
+        'backup_urls': [
+            'https://tvsen6.aynaott.com/zv68oqPDu7MZZwmHhRxt/index.m3u8'
+        ],
+        'language': 'urdu',
+        'featured': True
+    },
+    {
+        'id': 'curated_pk_geonews',
+        'name': 'Geo News HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Geo_News_logo.svg/300px-Geo_News_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Pakistan',
+        'country_code': 'pk',
+        'flag': '🇵🇰',
+        'stream_url': 'https://cdn4.mjunoon.tv:8087/streamtest/146M/chunks.m3u8',
+        'backup_urls': [],
+        'language': 'urdu',
+        'featured': True
+    },
+    {
+        'id': 'curated_pk_arynews',
+        'name': 'ARY News',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/6/6f/ARY_News_logo.svg/300px-ARY_News_logo.svg.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Pakistan',
+        'country_code': 'pk',
+        'flag': '🇵🇰',
+        'stream_url': 'http://92news.vdn.dstreamone.net/92newshd/92hd/playlist.m3u8',
+        'backup_urls': [],
+        'language': 'urdu',
+        'featured': True
+    },
+    {
+        'id': 'curated_pk_8xm',
+        'name': '8XM Music HD',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/0/07/8XM_logo.png/250px-8XM_logo.png',
+        'category': 'entertainment',
+        'group': 'Music',
+        'country': 'Pakistan',
+        'country_code': 'pk',
+        'flag': '🇵🇰',
+        'stream_url': 'https://cdn4.mjunoon.tv:8087/streamtest/131M/chunks.m3u8',
+        'backup_urls': [],
+        'language': 'urdu',
+        'featured': True
+    },
+    {
+        'id': 'curated_pk_khyber',
+        'name': 'Khyber News',
+        'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/1/1a/Khyber_News_logo.png/250px-Khyber_News_logo.png',
+        'category': 'news',
+        'group': 'News',
+        'country': 'Pakistan',
+        'country_code': 'pk',
+        'flag': '🇵🇰',
+        'stream_url': 'https://cdn4.mjunoon.tv:8087/streamtest/144M/chunks.m3u8',
+        'backup_urls': [],
+        'language': 'urdu',
+        'featured': True
+    },
+    {
+        'id': 'test_stream_mux',
+        'name': 'Big Buck Bunny (4K / 60fps Verified Test)',
+        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/260px-Big_buck_bunny_poster_big.jpg',
+        'category': 'entertainment',
+        'group': 'Animation',
+        'country': 'Global',
+        'country_code': 'in',
+        'flag': '🎬',
+        'stream_url': 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        'backup_urls': [],
+        'language': 'english',
+        'featured': False
+    }
+]
+
+def generate_channel_servers(channel):
+    primary_url = channel.get('stream_url', '')
+    backups = channel.get('backup_urls', [])
+    servers = []
+    
+    # Server 1: Direct CDN (fastest when CORS allows)
+    servers.append({
+        'id': 'srv_1',
+        'name': 'Server 1 (High-Speed Direct)',
+        'badge': '⚡ Direct CDN',
+        'url': primary_url,
+        'type': 'direct',
+        'description': 'Direct origin streaming with minimal latency'
+    })
+    
+    # Server 2: Turbo Proxy
+    servers.append({
+        'id': 'srv_2',
+        'name': 'Server 2 (Turbo Buffer-Free Proxy)',
+        'badge': '🚀 Turbo Buffer-Free',
+        'url': f"/api/proxy?server=turbo&url={quote(primary_url)}",
+        'type': 'proxy',
+        'description': 'Persistent Keep-Alive connection pool with 128KB prebuffering'
+    })
+    
+    # Server 3: Edge Bypass Route
+    servers.append({
+        'id': 'srv_3',
+        'name': 'Server 3 (Edge Bypass Route)',
+        'badge': '🛡️ Edge Bypass',
+        'url': f"/api/proxy?server=edge&url={quote(primary_url)}",
+        'type': 'proxy',
+        'description': 'AppleCoreMedia headers to bypass geo-restrictions & CORS locks'
+    })
+    
+    # Server 4 & 5
+    if backups and len(backups) > 0:
+        backup_url = backups[0]
+        servers.append({
+            'id': 'srv_4',
+            'name': 'Server 4 (Alternative Broadcast Feed)',
+            'badge': '📡 Alt Source',
+            'url': backup_url,
+            'type': 'direct',
+            'description': 'Secondary broadcast transmission line'
+        })
+        servers.append({
+            'id': 'srv_5',
+            'name': 'Server 5 (Backup Cloud Proxy)',
+            'badge': '🌐 Cloud Mirror',
+            'url': f"/api/proxy?server=backup&url={quote(backup_url)}",
+            'type': 'proxy',
+            'description': 'Proxied secondary broadcast source'
+        })
+    else:
+        servers.append({
+            'id': 'srv_4',
+            'name': 'Server 4 (Backup Cloud Proxy)',
+            'badge': '🌐 Cloud Mirror',
+            'url': f"/api/proxy?server=backup&url={quote(primary_url)}",
+            'type': 'proxy',
+            'description': 'Failover cloud-routed proxy'
+        })
+        
+    return servers
 
 def build_database():
-    all_channels = []
-    seen_urls = set()
-    seen_names = set()
+    print("Building multi-server channel database...")
+    # Load and populate channels with multi-servers
+    if os.path.exists(CHANNELS_PATH):
+        with open(CHANNELS_PATH, 'r', encoding='utf-8') as f:
+            channels = json.load(f)
+    else:
+        channels = list(CURATED_CHANNELS)
 
-    for code, meta in COUNTRIES.items():
-        url = f'https://iptv-org.github.io/iptv/countries/{code}.m3u'
-        print(f"Fetching {meta['name']} playlist...")
-        try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-            content = urllib.request.urlopen(req, timeout=15).read().decode('utf-8', errors='ignore')
-            lines = content.splitlines()
-            
-            i = 0
-            while i < len(lines):
-                line = lines[i].strip()
-                if line.startswith('#EXTINF:'):
-                    name_match = re.search(r',([^,]+)$', line)
-                    logo_match = re.search(r'tvg-logo="([^"]+)"', line)
-                    group_match = re.search(r'group-title="([^"]+)"', line)
-                    
-                    stream_url = ''
-                    if i + 1 < len(lines):
-                        next_line = lines[i+1].strip()
-                        if next_line.startswith('http'):
-                            stream_url = next_line
-                            i += 1
-                    
-                    if stream_url and stream_url not in seen_urls:
-                        raw_name = name_match.group(1).strip() if name_match else 'Live Channel'
-                        c_name = clean_channel_name(raw_name)
-                        logo = logo_match.group(1).strip() if logo_match else ''
-                        group = group_match.group(1).strip() if group_match else 'General'
-                        category = classify_channel(c_name, group)
-                        
-                        unique_key = f"{code}_{c_name.lower()}"
-                        if unique_key not in seen_names:
-                            seen_names.add(unique_key)
-                            seen_urls.add(stream_url)
-                            channel_id = f"{code}_{len(all_channels)+1}"
-                            
-                            all_channels.append({
-                                'id': channel_id,
-                                'name': c_name,
-                                'original_name': raw_name,
-                                'logo': logo or f"https://api.dicebear.com/7.x/identicon/svg?seed={c_name}",
-                                'category': category,
-                                'group': group,
-                                'country': meta['name'],
-                                'country_code': code,
-                                'flag': meta['flag'],
-                                'stream_url': stream_url,
-                                'language': meta['lang'],
-                                'is_active': True
-                            })
-                i += 1
-            print(f"Loaded {len([c for c in all_channels if c['country_code'] == code])} channels for {meta['name']}")
-        except Exception as e:
-            print(f"Error fetching {code}: {e}")
+    for ch in channels:
+        ch['servers'] = generate_channel_servers(ch)
+        if 'backup_urls' not in ch:
+            ch['backup_urls'] = []
 
-    # Add verified high-reliability popular channels & fallbacks for key categories
-    curated_highlights = [
-        # Bangladesh
-        {
-            'id': 'curated_bd_somoy',
-            'name': 'Somoy TV',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/0/07/Somoy_TV_logo.svg/300px-Somoy_TV_logo.svg.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'Bangladesh',
-            'country_code': 'bd',
-            'flag': '🇧🇩',
-            'stream_url': 'https://tvsen5.aynaott.com/somoytv/index.m3u8',
-            'language': 'bangla',
-            'featured': True
-        },
-        {
-            'id': 'curated_bd_jamuna',
-            'name': 'Jamuna TV',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/7/7b/Jamuna_Television_logo.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'Bangladesh',
-            'country_code': 'bd',
-            'flag': '🇧🇩',
-            'stream_url': 'https://tvsen5.aynaott.com/jamunatv/index.m3u8',
-            'language': 'bangla',
-            'featured': True
-        },
-        {
-            'id': 'curated_bd_channel24',
-            'name': 'Channel 24',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f6/Channel_24_logo.svg/330px-Channel_24_logo.svg.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'Bangladesh',
-            'country_code': 'bd',
-            'flag': '🇧🇩',
-            'stream_url': 'https://tvsen5.aynaott.com/channel24/index.m3u8',
-            'language': 'bangla',
-            'featured': True
-        },
-        {
-            'id': 'curated_bd_tsports',
-            'name': 'T Sports Live',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/T_Sports_logo.svg/330px-T_Sports_logo.svg.png',
-            'category': 'sports',
-            'group': 'Sports',
-            'country': 'Bangladesh',
-            'country_code': 'bd',
-            'flag': '🇧🇩',
-            'stream_url': 'https://live-tsports.akamaized.net/hls/live/2034523/tsports/master.m3u8',
-            'language': 'bangla',
-            'featured': True
-        },
-        {
-            'id': 'curated_bd_peace',
-            'name': 'Peace TV Bangla',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/7/7e/Peace_TV_Bangla_Logo.jpg/250px-Peace_TV_Bangla_Logo.jpg',
-            'category': 'religious',
-            'group': 'Religious',
-            'country': 'Bangladesh',
-            'country_code': 'bd',
-            'flag': '🇧🇩',
-            'stream_url': 'https://peacetv.vedge.infomaniak.com/live/peacetvbangla/playlist.m3u8',
-            'language': 'bangla',
-            'featured': True
-        },
-        {
-            'id': 'curated_bd_gaanbangla',
-            'name': 'Gaan Bangla',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/c/cb/Gaan_Bangla_logo.png',
-            'category': 'entertainment',
-            'group': 'Music',
-            'country': 'Bangladesh',
-            'country_code': 'bd',
-            'flag': '🇧🇩',
-            'stream_url': 'https://tvsen5.aynaott.com/gaanbangla/index.m3u8',
-            'language': 'bangla',
-            'featured': True
-        },
-        # India
-        {
-            'id': 'curated_in_ddnews',
-            'name': 'DD News Live',
-            'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/DD_News_logo_2024.png/300px-DD_News_logo_2024.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'India',
-            'country_code': 'in',
-            'flag': '🇮🇳',
-            'stream_url': 'https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa404e712990839/DD-News/master.m3u8',
-            'language': 'hindi',
-            'featured': True
-        },
-        {
-            'id': 'curated_in_ddsports',
-            'name': 'DD Sports Live',
-            'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/DD_Sports_logo_2023.svg/300px-DD_Sports_logo_2023.svg.png',
-            'category': 'sports',
-            'group': 'Sports',
-            'country': 'India',
-            'country_code': 'in',
-            'flag': '🇮🇳',
-            'stream_url': 'https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa404e712990839/DD-Sports/master.m3u8',
-            'language': 'hindi',
-            'featured': True
-        },
-        {
-            'id': 'curated_in_indiatv',
-            'name': 'India TV',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/6/67/India_TV_logo.svg/330px-India_TV_logo.svg.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'India',
-            'country_code': 'in',
-            'flag': '🇮🇳',
-            'stream_url': 'https://indiatvnews-lh.akamaihd.net/i/ITV_1@183574/master.m3u8',
-            'language': 'hindi',
-            'featured': True
-        },
-        {
-            'id': 'curated_in_sanskar',
-            'name': 'Sanskar TV',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Sanskar_TV_logo.jpg/250px-Sanskar_TV_logo.jpg',
-            'category': 'religious',
-            'group': 'Religious',
-            'country': 'India',
-            'country_code': 'in',
-            'flag': '🇮🇳',
-            'stream_url': 'https://live.sanskargroup.in/hls/sanskar.m3u8',
-            'language': 'hindi',
-            'featured': True
-        },
-        {
-            'id': 'curated_in_aastha',
-            'name': 'Aastha TV',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/1/14/Aastha_tv_logo.jpg/250px-Aastha_tv_logo.jpg',
-            'category': 'religious',
-            'group': 'Religious',
-            'country': 'India',
-            'country_code': 'in',
-            'flag': '🇮🇳',
-            'stream_url': 'https://aastha.sanskargroup.in/hls/aastha.m3u8',
-            'language': 'hindi',
-            'featured': True
-        },
-        {
-            'id': 'curated_in_9xjalwa',
-            'name': '9X Jalwa',
-            'logo': 'https://xstreamcp-assets-msp.streamready.in/assets/LIVETV/LIVECHANNEL/LIVETV_LIVETVCHANNEL_9X_JALWA/images/LOGO_HD/image.png',
-            'category': 'entertainment',
-            'group': 'Music',
-            'country': 'India',
-            'country_code': 'in',
-            'flag': '🇮🇳',
-            'stream_url': 'https://wiselp.wiseplayout.com/9X_Jalwa/master.m3u8',
-            'language': 'hindi',
-            'featured': True
-        },
-        # Pakistan
-        {
-            'id': 'curated_pk_asports',
-            'name': 'A Sports HD',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/A_Sports_HD_logo.svg/300px-A_Sports_HD_logo.svg.png',
-            'category': 'sports',
-            'group': 'Sports',
-            'country': 'Pakistan',
-            'country_code': 'pk',
-            'flag': '🇵🇰',
-            'stream_url': 'https://cdn4.mjunoon.tv:8087/streamtest/145M/chunks.m3u8',
-            'language': 'urdu',
-            'featured': True
-        },
-        {
-            'id': 'curated_pk_ptvsports',
-            'name': 'PTV Sports',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/PTV_Sports_logo.svg/300px-PTV_Sports_logo.svg.png',
-            'category': 'sports',
-            'group': 'Sports',
-            'country': 'Pakistan',
-            'country_code': 'pk',
-            'flag': '🇵🇰',
-            'stream_url': 'https://cdn4.mjunoon.tv:8087/streamtest/105M/chunks.m3u8',
-            'language': 'urdu',
-            'featured': True
-        },
-        {
-            'id': 'curated_pk_geonews',
-            'name': 'Geo News HD',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Geo_News_logo.svg/300px-Geo_News_logo.svg.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'Pakistan',
-            'country_code': 'pk',
-            'flag': '🇵🇰',
-            'stream_url': 'https://cdn4.mjunoon.tv:8087/streamtest/146M/chunks.m3u8',
-            'language': 'urdu',
-            'featured': True
-        },
-        {
-            'id': 'curated_pk_arynews',
-            'name': 'ARY News',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/6/6f/ARY_News_logo.svg/300px-ARY_News_logo.svg.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'Pakistan',
-            'country_code': 'pk',
-            'flag': '🇵🇰',
-            'stream_url': 'http://92news.vdn.dstreamone.net/92newshd/92hd/playlist.m3u8',
-            'language': 'urdu',
-            'featured': True
-        },
-        {
-            'id': 'curated_pk_madani',
-            'name': 'Madani Channel Urdu',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/b/b5/Madani_Channel_logo.png/250px-Madani_Channel_logo.png',
-            'category': 'religious',
-            'group': 'Religious',
-            'country': 'Pakistan',
-            'country_code': 'pk',
-            'flag': '🇵🇰',
-            'stream_url': 'https://madani.vedge.infomaniak.com/live/madanichannelurdu/playlist.m3u8',
-            'language': 'urdu',
-            'featured': True
-        },
-        {
-            'id': 'curated_pk_humtv',
-            'name': 'Hum TV',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/8/87/Hum_TV_Logo.svg/300px-Hum_TV_Logo.svg.png',
-            'category': 'entertainment',
-            'group': 'Drama',
-            'country': 'Pakistan',
-            'country_code': 'pk',
-            'flag': '🇵🇰',
-            'stream_url': 'https://ml-pull-dvc-myco.io:2096/AAJ_ENTERTAINMENT/index.m3u8',
-            'language': 'urdu',
-            'featured': True
-        },
-        # Global fallback test streams (sports, news, test streams)
-        {
-            'id': 'test_stream_1',
-            'name': 'Red Bull TV (Live Sports)',
-            'logo': 'https://resources.redbull.com/logos/redbulltv/logo.svg',
-            'category': 'sports',
-            'group': 'Sports',
-            'country': 'Global',
-            'country_code': 'in',
-            'flag': '🌐',
-            'stream_url': 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8',
-            'language': 'english',
-            'featured': True
-        },
-        {
-            'id': 'test_stream_2',
-            'name': 'Al Jazeera English HD',
-            'logo': 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Al_Jazeera_English_logo.svg/300px-Al_Jazeera_English_logo.svg.png',
-            'category': 'news',
-            'group': 'News',
-            'country': 'Global',
-            'country_code': 'bd',
-            'flag': '🌐',
-            'stream_url': 'https://live-hls-web-aje.getaj.net/AJE/01.m3u8',
-            'language': 'english',
-            'featured': True
-        },
-        {
-            'id': 'test_stream_3',
-            'name': 'NASA TV HD (Science & Cosmos)',
-            'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/NASA_logo.svg/300px-NASA_logo.svg.png',
-            'category': 'others',
-            'group': 'Science',
-            'country': 'Global',
-            'country_code': 'in',
-            'flag': '🌐',
-            'stream_url': 'https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8',
-            'language': 'english',
-            'featured': True
-        },
-        {
-            'id': 'test_stream_4',
-            'name': 'Makkah Live (Masjid al-Haram)',
-            'logo': 'https://i.imgur.com/JlqS6I4.jpeg',
-            'category': 'religious',
-            'group': 'Religious',
-            'country': 'Global',
-            'country_code': 'pk',
-            'flag': '🕋',
-            'stream_url': 'https://win.hollive.net:8443/live/quran.m3u8',
-            'language': 'urdu',
-            'featured': True
-        },
-        {
-            'id': 'test_stream_5',
-            'name': 'Big Buck Bunny (Ultra HD Test)',
-            'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/260px-Big_buck_bunny_poster_big.jpg',
-            'category': 'entertainment',
-            'group': 'Animation',
-            'country': 'Global',
-            'country_code': 'bd',
-            'flag': '🎬',
-            'stream_url': 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-            'language': 'english',
-            'featured': False
-        }
-    ]
+    with open(CHANNELS_PATH, 'w', encoding='utf-8') as f:
+        json.dump(channels, f, ensure_ascii=False, indent=2)
 
-    # Prepend curated highlights
-    final_channels = curated_highlights + all_channels
-
-    output_path = os.path.join(os.path.dirname(__file__), 'channels.json')
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(final_channels, f, ensure_ascii=False, indent=2)
-
-    print(f"Total curated and parsed channels saved: {len(final_channels)}")
+    print(f"Channels database built with {len(channels)} multi-server channels!")
 
 if __name__ == '__main__':
     build_database()

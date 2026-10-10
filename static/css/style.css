@@ -812,6 +812,21 @@ body::after {
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
 }
 
+.server-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  backdrop-filter: blur(8px);
+}
+
 .player-stats-meta {
   display: flex;
   align-items: center;
@@ -1138,6 +1153,195 @@ body::after {
   content: '✓';
   font-weight: 800;
   color: var(--accent-primary);
+}
+
+/* --- Multi-Server Selector Styles --- */
+.server-selector-wrapper {
+  position: relative;
+}
+
+.server-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: auto;
+  transition: all var(--transition-fast);
+}
+
+.server-btn:hover {
+  border-color: var(--accent-emerald);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.server-btn svg {
+  width: 14px;
+  height: 14px;
+  color: #10b981;
+}
+
+.server-label-text {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.dropdown-arrow {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.server-dropdown {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: 290px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg), 0 0 25px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 0.5rem;
+  z-index: 100;
+  animation: dropdownSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.server-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem 0.35rem;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 0.35rem;
+}
+
+.server-dropdown-header span:first-child {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.server-mode-tip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+}
+
+.server-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.server-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.server-option:hover {
+  background: var(--bg-primary);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+.server-option.active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.server-option-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.server-option-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.server-option.active .server-option-name {
+  color: #10b981;
+}
+
+.server-option-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.server-option.active .server-option-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.server-option-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+/* Toast Notifications in Player */
+.player-toast {
+  position: absolute;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 185, 129, 0.6);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(16, 185, 129, 0.35);
+  color: #f8fafc;
+  padding: 0.55rem 1.15rem;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  z-index: 50;
+  pointer-events: none;
+  animation: toastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+@keyframes toastFadeIn {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 /* Theater Mode Styles */

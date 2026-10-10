@@ -6,10 +6,17 @@ An aesthetic, responsive Live TV streaming web application built with Python (Fl
 
 ## ✨ Features
 
-- **📺 990+ Live TV Channels**:
-  - 🇧🇩 **Bangladesh**: Somoy TV, Jamuna TV, Channel 24, T Sports, Bangla Vision, Peace TV Bangla, Gaan Bangla, ATN Bangla, etc.
-  - 🇮🇳 **India**: DD News, DD Sports, India TV, 9X Jalwa, Sanskar TV, Aastha TV, 4TV News, etc.
-  - 🇵🇰 **Pakistan**: Geo News, ARY News, A Sports, PTV Sports, Hum TV, Madani Channel Urdu, etc.
+- **📺 700+ Verified Active Live TV Channels**:
+  - 🇧🇩 **Bangladesh**: Somoy TV, DBC News, Ekattor TV, Independent TV, Bangla Vision, Boishakhi TV, Ekushey TV, Duronto TV, Maasranga TV, ATN Bangla, NTV, RTV, Peace TV Bangla, Star Jalsha, Zee Bangla, Nexus TV, etc.
+  - 🇮🇳 **India**: India Today HD, WION News, News Nation, 9X Jalwa, Red Bull TV Sports, NASA TV HD, TRT World, DW News, etc.
+  - 🇵🇰 **Pakistan**: A Sports HD, Geo News HD, ARY News, 8XM Music, Khyber News, etc.
+- **🖥️ Multi-Server Anti-Buffering Architecture**:
+  - **Server 1 (High-Speed Direct CDN)**: Direct origin stream for lowest latency.
+  - **Server 2 (Turbo Buffer-Free Proxy)**: Persistent TCP Keep-Alive connection pooling with 128KB chunk buffers to eliminate buffering.
+  - **Server 3 (Edge Bypass Route)**: AppleCoreMedia / iPad headers to bypass CORS and CDN anti-hotlinking.
+  - **Server 4 (Backup Cloud Proxy / Alt Source)**: Failover cloud transmission line.
+  - **Interactive Server Switcher**: Dropdown in the player controls allowing users to switch servers with 1 click.
+  - **Smart Auto-Failover & Stall Watchdog**: If a stream stalls or buffers for > 4.5s, the player automatically switches to the next available server with an animated toast notification.
 - **🧭 Navigation Bar Categories**:
   - **All Channels**
   - **Sports**
@@ -29,12 +36,11 @@ An aesthetic, responsive Live TV streaming web application built with Python (Fl
   - Smooth 1-click toggle with animated sun/moon icons.
   - High-contrast, glassmorphism cards, glowing ambient accents, and theme persistence.
 - **⚡ Interactive Video Player**:
-  - Powered by **HLS.js** for live `.m3u8` feeds.
-  - Automatic stream retry & built-in **CORS Bypass Proxy**.
+  - Powered by **HLS.js** with tuned 30s buffer window, PTS micro-hole jumping, and safe live-sync margin.
   - Live blinking status dot (Online, Buffering, Offline).
   - Dynamic simulated live viewer counter.
-  - Controls: Play/Pause, Mute/Volume slider, Resolution Selector, Picture-in-Picture (PiP), Theater Mode, Fullscreen, and Stream Reload.
-  - Graceful stream error fallback card with 1-click Proxy switcher and verified test streams.
+  - Controls: Server Selector, Play/Pause, Mute/Volume slider, Resolution Selector, Picture-in-Picture (PiP), Theater Mode, Fullscreen, and Stream Reload.
+  - Graceful stream error fallback card with 1-click Next Server switcher and verified test streams.
 - **❤️ Favorites & Recent Shelf**:
   - Bookmark favorite channels with interactive heart animation.
   - Instant filter tab for saved channels.

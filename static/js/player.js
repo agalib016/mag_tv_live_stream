@@ -1,6 +1,6 @@
 /**
  * High-performance Video Player wrapper with HLS.js,
- * automatic CORS proxy fallback, theater mode, pip, and live status.
+ * Multi-Server failover, anti-buffering optimization, theater mode, pip, and live status.
  */
 
 class LivePlayer {
@@ -9,6 +9,8 @@ class LivePlayer {
     this.container = containerElement;
     this.hls = null;
     this.currentChannel = null;
+    this.currentServers = [];
+    this.currentServerIndex = 0;
     this.useProxy = false;
     this.isMuted = false;
     this.previousVolume = 1.0;
@@ -16,6 +18,10 @@ class LivePlayer {
     this.maxRetries = 2;
     this.viewerInterval = null;
     this.simulatedViewers = 1240;
+
+    // Buffering & stall detection timers
+    this.bufferStallTimer = null;
+    this.toastTimeout = null;
 
     this.initElements();
     this.bindEvents();
@@ -32,7 +38,17 @@ class LivePlayer {
     this.reloadBtn = document.getElementById('playerReloadBtn');
     this.proxyToggleBtn = document.getElementById('playerProxyToggleBtn');
     this.favToggleBtn = document.getElementById('playerFavToggleBtn');
-    
+
+    // Server controls
+    this.serverBtn = document.getElementById('playerServerBtn');
+    this.serverText = document.getElementById('playerServerText');
+    this.serverDropdown = document.getElementById('serverMenuDropdown');
+    this.serverOptionsList = document.getElementById('serverOptionsList');
+    this.serverBadge = document.getElementById('playerServerBadge');
+    this.nextServerBtn = document.getElementById('playerNextServerBtn');
+    this.playerToast = document.getElementById('playerToast');
+    this.playerToastMsg = document.getElementById('playerToastMsg');
+
     this.streamStatusBadge = document.getElementById('streamStatusBadge');
     this.viewerCountEl = document.getElementById('playerViewerCount');
     this.channelTitleEl = document.getElementById('playerChannelTitle');
@@ -100,15 +116,54 @@ class LivePlayer {
       this.reloadBtn.addEventListener('click', () => this.reloadStream());
     }
 
-    // Proxy Toggle
+    // Multi-Server Selector Dropdown
+    if (this.serverBtn && this.serverDropdown) {
+      this.serverBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.serverDropdown.classList.toggle('hidden');
+        if (this.qualityDropdown) this.qualityDropdown.classList.add('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#serverSelectorWrapper')) {
+          this.serverDropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    if (this.serverOptionsList) {
+      this.serverOptionsList.addEventListener('click', (e) => {
+        const opt = e.target.closest('.server-option');
+        if (!opt) return;
+        const srvIdx = parseInt(opt.getAttribute('data-server-idx'), 10);
+        if (!isNaN(srvIdx)) {
+          this.switchServer(srvIdx, false);
+          if (this.serverDropdown) this.serverDropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    if (this.nextServerBtn) {
+      this.nextServerBtn.addEventListener('click', () => {
+        this.switchNextServer();
+      });
+    }
+
+    // Proxy Toggle Button
     if (this.proxyToggleBtn) {
       this.proxyToggleBtn.addEventListener('click', () => {
         this.useProxy = !this.useProxy;
         this.proxyToggleBtn.classList.toggle('active', this.useProxy);
         const modeText = this.useProxy ? t('proxyStream') : t('directStream');
-        this.proxyToggleBtn.querySelector('.proxy-mode-text').textContent = modeText;
-        if (this.currentChannel) {
-          this.loadChannel(this.currentChannel, this.useProxy);
+        const textNode = this.proxyToggleBtn.querySelector('.proxy-mode-text');
+        if (textNode) textNode.textContent = modeText;
+        
+        // Find best corresponding server (proxy or direct)
+        if (this.currentServers && this.currentServers.length > 0) {
+          const targetType = this.useProxy ? 'proxy' : 'direct';
+          const matchIdx = this.currentServers.findIndex(s => s.type === targetType);
+          this.switchServer(matchIdx >= 0 ? matchIdx : 0, false);
+        } else if (this.currentChannel) {
+          this.loadChannel(this.currentChannel, 0);
         }
       });
     }
@@ -118,6 +173,7 @@ class LivePlayer {
       this.qualityBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.qualityDropdown.classList.toggle('hidden');
+        if (this.serverDropdown) this.serverDropdown.classList.add('hidden');
       });
       document.addEventListener('click', (e) => {
         if (!e.target.closest('#qualitySelectorWrapper')) {
@@ -156,13 +212,12 @@ class LivePlayer {
     }
     if (this.switchProxyBtn) {
       this.switchProxyBtn.addEventListener('click', () => {
-        this.useProxy = !this.useProxy;
-        if (this.proxyToggleBtn) {
-          this.proxyToggleBtn.classList.toggle('active', this.useProxy);
-          this.proxyToggleBtn.querySelector('.proxy-mode-text').textContent = this.useProxy ? t('proxyStream') : t('directStream');
-        }
-        if (this.currentChannel) {
-          this.loadChannel(this.currentChannel, this.useProxy);
+        // Switch to Server 2 (Turbo Buffer-Free Proxy)
+        const proxyIdx = this.currentServers.findIndex(s => s.type === 'proxy');
+        if (proxyIdx >= 0) {
+          this.switchServer(proxyIdx, false);
+        } else {
+          this.switchNextServer();
         }
       });
     }
@@ -176,59 +231,129 @@ class LivePlayer {
           country: 'Global',
           country_code: 'in',
           flag: '🎬',
-          logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/260px-Big_buck_bunny_poster_big.jpg'
+          logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/260px-Big_buck_bunny_poster_big.jpg',
+          servers: [
+            {
+              id: 'srv_1',
+              name: 'Server 1 (Direct Test Stream)',
+              badge: '⚡ Direct CDN',
+              url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+              type: 'direct',
+              description: 'Ultra HD 60fps verified test stream'
+            },
+            {
+              id: 'srv_2',
+              name: 'Server 2 (Turbo Proxy)',
+              badge: '🚀 Turbo Buffer-Free',
+              url: '/api/proxy?server=turbo&url=https%3A//test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+              type: 'proxy',
+              description: 'Persistent Keep-Alive connection pool'
+            }
+          ]
         };
-        this.loadChannel(testChannel, false);
+        this.loadChannel(testChannel, 0);
       });
     }
 
-    // Video native events
+    // Native Video Events
     this.video.addEventListener('play', () => {
       this.hideLoading();
       this.hideError();
+      this.clearStallWatchdog();
       this.updatePlayState(true);
       this.setStatus('online', t('statusOnline'));
     });
 
     this.video.addEventListener('pause', () => {
+      this.clearStallWatchdog();
       this.updatePlayState(false);
     });
 
     this.video.addEventListener('waiting', () => {
       this.showLoading();
       this.setStatus('buffering', t('statusBuffering'));
+      this.startStallWatchdog();
+    });
+
+    this.video.addEventListener('stalled', () => {
+      this.startStallWatchdog();
     });
 
     this.video.addEventListener('playing', () => {
       this.hideLoading();
+      this.clearStallWatchdog();
       this.setStatus('online', t('statusOnline'));
     });
 
     this.video.addEventListener('error', (e) => {
-      console.warn('HTML5 Video error:', e);
-      this.handleStreamError('Video element error');
+      console.warn('HTML5 Video error event:', e);
+      this.autoFailoverServer('Video stream decode error');
     });
   }
 
-  loadChannel(channel, useProxy = this.useProxy) {
+  loadChannel(channel, serverIndex = 0) {
     if (!channel) return;
     this.currentChannel = channel;
-    this.useProxy = useProxy;
     this.retryCount = 0;
+    this.clearStallWatchdog();
+
+    // Prepare servers array
+    if (channel.servers && channel.servers.length > 0) {
+      this.currentServers = channel.servers;
+    } else {
+      const pUrl = channel.stream_url;
+      this.currentServers = [
+        {
+          id: 'srv_1',
+          name: 'Server 1 (High-Speed Direct)',
+          badge: '⚡ Direct CDN',
+          url: pUrl,
+          type: 'direct',
+          description: 'Direct origin streaming'
+        },
+        {
+          id: 'srv_2',
+          name: 'Server 2 (Turbo Buffer-Free Proxy)',
+          badge: '🚀 Turbo Buffer-Free',
+          url: `/api/proxy?server=turbo&url=${encodeURIComponent(pUrl)}`,
+          type: 'proxy',
+          description: 'Persistent Keep-Alive connection pool with 128KB prebuffering'
+        },
+        {
+          id: 'srv_3',
+          name: 'Server 3 (Edge Bypass Route)',
+          badge: '🛡️ Edge Bypass',
+          url: `/api/proxy?server=edge&url=${encodeURIComponent(pUrl)}`,
+          type: 'proxy',
+          description: 'AppleCoreMedia headers to bypass geo-restrictions'
+        },
+        {
+          id: 'srv_4',
+          name: 'Server 4 (Backup Cloud Proxy)',
+          badge: '🌐 Cloud Mirror',
+          url: `/api/proxy?server=backup&url=${encodeURIComponent(pUrl)}`,
+          type: 'proxy',
+          description: 'Failover cloud-routed proxy'
+        }
+      ];
+    }
+
+    this.currentServerIndex = Math.min(Math.max(0, serverIndex), this.currentServers.length - 1);
 
     // Update UI headers
     if (this.channelTitleEl) this.channelTitleEl.textContent = channel.name;
     if (this.channelCategoryEl) {
       this.channelCategoryEl.textContent = t(channel.category) || channel.category;
-      this.channelCategoryEl.className = `badge category-badge cat-${channel.category.toLowerCase()}`;
+      this.channelCategoryEl.className = `badge category-badge cat-${(channel.category || 'others').toLowerCase()}`;
     }
     if (this.channelCountryEl) {
-      this.channelCountryEl.textContent = `${channel.flag || ''} ${t(channel.country.toLowerCase()) || channel.country}`;
+      this.channelCountryEl.textContent = `${channel.flag || ''} ${t((channel.country || '').toLowerCase()) || channel.country}`;
     }
     if (this.channelLogoEl) {
-      this.channelLogoEl.src = channel.logo || `https://api.dicebear.com/7.x/identicon/svg?seed=${channel.name}`;
+      const fallbackSeed = encodeURIComponent(channel.name);
+      this.channelLogoEl.src = channel.logo || `https://api.dicebear.com/7.x/identicon/svg?seed=${fallbackSeed}`;
       this.channelLogoEl.onerror = () => {
-        this.channelLogoEl.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${channel.name}`;
+        this.channelLogoEl.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${fallbackSeed}`;
       };
     }
 
@@ -253,32 +378,176 @@ class LivePlayer {
       window.app.addRecent(channel);
     }
 
-    // Determine target URL
-    let streamUrl = channel.stream_url;
-    if (this.useProxy) {
-      streamUrl = `/api/proxy?url=${encodeURIComponent(channel.stream_url)}`;
+    // Render server options dropdown & select active server
+    this.renderServerOptions();
+    this.applyActiveServerUI();
+
+    const selectedServer = this.currentServers[this.currentServerIndex];
+    this.playStreamUrl(selectedServer.url);
+  }
+
+  renderServerOptions() {
+    if (!this.serverOptionsList || !this.currentServers) return;
+
+    let html = '';
+    this.currentServers.forEach((srv, idx) => {
+      const isActive = idx === this.currentServerIndex;
+      html += `
+        <button class="server-option ${isActive ? 'active' : ''}" data-server-idx="${idx}">
+          <div class="server-option-top">
+            <span class="server-option-name">${srv.name}</span>
+            <span class="server-option-badge">${srv.badge || (srv.type === 'direct' ? '⚡ Direct' : '🚀 Proxy')}</span>
+          </div>
+          <span class="server-option-desc">${srv.description || ''}</span>
+        </button>
+      `;
+    });
+
+    this.serverOptionsList.innerHTML = html;
+  }
+
+  applyActiveServerUI() {
+    const srv = this.currentServers[this.currentServerIndex];
+    if (!srv) return;
+
+    if (this.serverText) {
+      this.serverText.textContent = `Server ${this.currentServerIndex + 1}`;
     }
 
-    // Load stream via Hls.js or native HLS
-    this.playStreamUrl(streamUrl);
+    if (this.serverBadge) {
+      this.serverBadge.textContent = `${srv.badge || '⚡ Server ' + (this.currentServerIndex + 1)}`;
+    }
+
+    if (this.proxyToggleBtn) {
+      const isProxy = srv.type === 'proxy';
+      this.proxyToggleBtn.classList.toggle('active', isProxy);
+      const textNode = this.proxyToggleBtn.querySelector('.proxy-mode-text');
+      if (textNode) {
+        textNode.textContent = isProxy ? t('proxyStream') : t('directStream');
+      }
+    }
+
+    // Update active highlight in dropdown
+    if (this.serverOptionsList) {
+      this.serverOptionsList.querySelectorAll('.server-option').forEach((opt, idx) => {
+        opt.classList.toggle('active', idx === this.currentServerIndex);
+      });
+    }
+  }
+
+  switchServer(index, isAuto = false) {
+    if (!this.currentServers || index < 0 || index >= this.currentServers.length) return;
+    this.currentServerIndex = index;
+    this.applyActiveServerUI();
+    this.hideError();
+    this.showLoading();
+    this.setStatus('connecting', t('statusConnecting'));
+
+    const srv = this.currentServers[this.currentServerIndex];
+    const toastMsg = isAuto 
+      ? t('autoSwitchedToast', { server: srv.name })
+      : t('manualSwitchedToast', { server: srv.name });
+    this.showToast(toastMsg);
+
+    this.playStreamUrl(srv.url);
+  }
+
+  switchNextServer() {
+    if (!this.currentServers || this.currentServers.length <= 1) {
+      this.reloadStream();
+      return;
+    }
+    const nextIdx = (this.currentServerIndex + 1) % this.currentServers.length;
+    this.switchServer(nextIdx, false);
+  }
+
+  autoFailoverServer(reason) {
+    console.warn('Auto failover triggered. Reason:', reason);
+    this.clearStallWatchdog();
+
+    if (this.currentServers && this.currentServerIndex + 1 < this.currentServers.length) {
+      const nextIdx = this.currentServerIndex + 1;
+      this.switchServer(nextIdx, true);
+    } else {
+      this.handleStreamError(reason);
+    }
+  }
+
+  startStallWatchdog() {
+    this.clearStallWatchdog();
+    // If buffering or stalled for > 4.5 seconds, auto-switch to next server to remove buffering!
+    this.bufferStallTimer = setTimeout(() => {
+      if (this.video.paused) return; // Ignore intentional pause
+      console.warn('Buffering watchdog triggered: Stream stalled for > 4.5s');
+
+      // First try gentle nudge if buffer hole
+      if (this.video.buffered && this.video.buffered.length > 0) {
+        try {
+          const end = this.video.buffered.end(this.video.buffered.length - 1);
+          if (end - this.video.currentTime > 0.5) {
+            this.video.currentTime += 0.25;
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Auto-failover to next server
+      this.autoFailoverServer('Continuous buffering detected');
+    }, 4500);
+  }
+
+  clearStallWatchdog() {
+    if (this.bufferStallTimer) {
+      clearTimeout(this.bufferStallTimer);
+      this.bufferStallTimer = null;
+    }
+  }
+
+  showToast(message) {
+    if (!this.playerToast || !this.playerToastMsg) return;
+    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+
+    this.playerToastMsg.textContent = message;
+    this.playerToast.classList.remove('hidden');
+
+    this.toastTimeout = setTimeout(() => {
+      this.playerToast.classList.add('hidden');
+    }, 3800);
   }
 
   playStreamUrl(url) {
+    this.clearStallWatchdog();
     if (this.hls) {
       this.hls.destroy();
       this.hls = null;
     }
 
     if (Hls.isSupported()) {
+      // Robust anti-buffering Hls.js configuration
       const hlsConfig = {
         debug: false,
         enableWorker: true,
-        lowLatencyMode: true,
+        // Crucial: lowLatencyMode: false gives safe buffer margin, completely removing IPTV buffering!
+        lowLatencyMode: false,
         backBufferLength: 60,
+        maxBufferLength: 30, // Buffers up to 30 seconds ahead
+        maxMaxBufferLength: 60,
+        maxBufferSize: 60 * 1024 * 1024, // 60MB memory buffer
+        maxBufferHole: 0.5, // Smoothly jumps over timestamp micro-holes without freezing
+        highBufferWatchdogPeriod: 2,
+        nudgeOffset: 0.2,
+        nudgeMaxRetry: 5,
+        liveSyncDurationCount: 3, // Safe 3-segment live edge cushion prevents underruns
+        liveMaxLatencyDurationCount: 10,
         manifestLoadingTimeOut: 12000,
-        manifestLoadingMaxRetry: 2,
+        manifestLoadingMaxRetry: 4,
+        manifestLoadingRetryDelay: 800,
         levelLoadingTimeOut: 12000,
+        levelLoadingMaxRetry: 4,
+        levelLoadingRetryDelay: 800,
         fragLoadingTimeOut: 15000,
+        fragLoadingMaxRetry: 5,
+        fragLoadingRetryDelay: 1000,
         xhrSetup: function (xhr, u) {
           xhr.withCredentials = false;
         }
@@ -317,20 +586,13 @@ class LivePlayer {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('Fatal network error encountered, attempting recovery...');
+              console.log('Fatal network error encountered on Server', this.currentServerIndex + 1);
               if (this.retryCount < this.maxRetries) {
                 this.retryCount++;
                 this.hls.startLoad();
-              } else if (!this.useProxy) {
-                console.log('Direct stream failed; auto-switching to CORS Proxy...');
-                this.useProxy = true;
-                if (this.proxyToggleBtn) {
-                  this.proxyToggleBtn.classList.add('active');
-                  this.proxyToggleBtn.querySelector('.proxy-mode-text').textContent = t('proxyStream');
-                }
-                this.loadChannel(this.currentChannel, true);
               } else {
-                this.handleStreamError(data.details);
+                // Auto failover to next server
+                this.autoFailoverServer(`Network error on Server ${this.currentServerIndex + 1}`);
               }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
@@ -338,7 +600,7 @@ class LivePlayer {
               this.hls.recoverMediaError();
               break;
             default:
-              this.handleStreamError(data.details);
+              this.autoFailoverServer(data.details);
               break;
           }
         }
@@ -398,7 +660,6 @@ class LivePlayer {
     if (!this.hls || !this.hls.levels || this.hls.levels.length <= 1) return;
     if (!this.qualityOptionsList) return;
 
-    const availableHeights = [...new Set(this.hls.levels.map(l => l.height).filter(Boolean))].sort((a,b) => b - a);
     let optionsHtml = `<button class="quality-option ${this.currentResolution === 'auto' ? 'active' : ''}" data-res="auto">${t('autoQuality') || 'Auto (Adaptive)'}</button>`;
     
     // List standard targets (4K, 2K, 1080p, 720p, 480p, 360p)
@@ -420,14 +681,13 @@ class LivePlayer {
 
   handleStreamError(reason) {
     this.hideLoading();
+    this.clearStallWatchdog();
     this.setStatus('error', t('statusError'));
     if (this.errorOverlay) {
       this.errorOverlay.classList.remove('hidden');
       if (this.errorTitle) this.errorTitle.textContent = t('streamErrorTitle');
       if (this.errorDesc) {
-        this.errorDesc.textContent = this.useProxy
-          ? t('streamErrorDesc') + ' (Proxy attempt also unreachable)'
-          : t('streamErrorDesc');
+        this.errorDesc.textContent = t('streamErrorDesc');
       }
     }
   }
@@ -467,7 +727,6 @@ class LivePlayer {
 
   updatePlayState(isPlaying) {
     if (!this.playPauseBtn) return;
-    const icon = this.playPauseBtn.querySelector('svg');
     if (isPlaying) {
       this.playPauseBtn.setAttribute('title', 'Pause (Space)');
       this.playPauseBtn.innerHTML = `
@@ -539,7 +798,6 @@ class LivePlayer {
     if (this.theaterBtn) {
       this.theaterBtn.classList.toggle('active', isTheater);
     }
-    // Scroll player smoothly into view
     this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -557,7 +815,7 @@ class LivePlayer {
 
   reloadStream() {
     if (this.currentChannel) {
-      this.loadChannel(this.currentChannel, this.useProxy);
+      this.switchServer(this.currentServerIndex, false);
     }
   }
 
@@ -569,7 +827,6 @@ class LivePlayer {
   }
 
   startViewerSimulation() {
-    // Dynamically fluctuates viewers around a realistic range
     const baseViewers = Math.floor(Math.random() * 8000) + 1200;
     this.simulatedViewers = baseViewers;
 

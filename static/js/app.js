@@ -49,7 +49,7 @@ class LiveTvApp {
       this.renderChannels();
       this.renderRecentChannels();
       if (this.player && this.player.currentChannel) {
-        this.player.loadChannel(this.player.currentChannel, this.player.useProxy);
+        this.player.loadChannel(this.player.currentChannel, this.player.currentServerIndex || 0);
       }
     });
   }
@@ -111,7 +111,7 @@ class LiveTvApp {
       // Autoload a featured channel on initial startup
       if (this.allChannels.length > 0 && this.player) {
         const initial = this.allChannels.find(c => c.featured) || this.allChannels[0];
-        this.player.loadChannel(initial, false);
+        this.player.loadChannel(initial, 0);
       }
     } catch (e) {
       console.error('Failed to load channels:', e);
@@ -342,7 +342,7 @@ class LiveTvApp {
       card.addEventListener('click', (e) => {
         if (e.target.closest('.card-fav-btn')) return; // Ignore if heart clicked
         if (channel && this.player) {
-          this.player.loadChannel(channel, false);
+          this.player.loadChannel(channel, 0);
           // Highlight current active card
           document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('now-playing-card'));
           card.classList.add('now-playing-card');
@@ -490,7 +490,7 @@ class LiveTvApp {
         const id = pill.getAttribute('data-id');
         const channel = this.allChannels.find(ch => ch.id === id) || this.recentChannels.find(ch => ch.id === id);
         if (channel && this.player) {
-          this.player.loadChannel(channel, false);
+          this.player.loadChannel(channel, 0);
         }
       });
     });
@@ -536,7 +536,7 @@ class LiveTvApp {
         this.allChannels.unshift(customChannel);
         this.filterAndRender();
         if (this.player) {
-          this.player.loadChannel(customChannel, false);
+          this.player.loadChannel(customChannel, 0);
         }
         closeModal();
         form.reset();

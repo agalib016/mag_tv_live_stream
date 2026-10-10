@@ -212,6 +212,7 @@
                         <span class="status-dot"></span>
                         <span class="status-text" data-i18n="statusOnline">Online</span>
                       </span>
+                      <span id="playerServerBadge" class="badge server-badge">⚡ Server 1: Direct CDN</span>
                       <span id="playerResolutionBadge" class="badge resolution-badge">Auto HD</span>
                       <span id="playerChannelCategory" class="badge cat-news" data-i18n="news">News</span>
                       <span id="playerChannelCountry" class="country-tag">🇧🇩 Bangladesh</span>
@@ -233,6 +234,12 @@
                 </div>
               </div>
 
+              <!-- Live Toast Notification (Server switch / Auto failover) -->
+              <div id="playerToast" class="player-toast hidden">
+                <span class="toast-icon">⚡</span>
+                <span id="playerToastMsg" class="toast-msg">Switched to Server 2</span>
+              </div>
+
               <!-- Loading Spinner -->
               <div id="playerLoadingSpinner" class="player-loading-spinner hidden">
                 <div class="spinner"></div>
@@ -243,10 +250,11 @@
                 <div class="error-icon">📡</div>
                 <h4 id="playerErrorTitle" class="error-title" data-i18n="streamErrorTitle">Stream Temporarily Unavailable</h4>
                 <p id="playerErrorDesc" class="error-desc" data-i18n="streamErrorDesc">
-                  This broadcaster stream could not be loaded directly (may have CORS restriction or regional lock).
+                  This broadcaster stream could not be loaded directly. You can switch to another server or test streams.
                 </p>
                 <div class="error-actions">
-                  <button id="playerSwitchProxyBtn" class="btn btn-primary" data-i18n="tryProxyBtn">Try CORS Proxy</button>
+                  <button id="playerNextServerBtn" class="btn btn-primary" data-i18n="tryNextServer">Switch to Next Server</button>
+                  <button id="playerSwitchProxyBtn" class="btn btn-outline" data-i18n="tryProxyBtn">Try Turbo Proxy</button>
                   <button id="playerRetryBtn" class="btn btn-outline" data-i18n="retryBtn">Retry Stream</button>
                   <button id="playerTestStreamBtn" class="btn btn-outline" data-i18n="tryTestStream">Play Test Stream</button>
                 </div>
@@ -286,6 +294,29 @@
               </div>
 
               <div class="controls-right">
+                <!-- Multi-Server Selector (Server 1, Server 2, Server 3, Server 4) -->
+                <div class="server-selector-wrapper" id="serverSelectorWrapper">
+                  <button id="playerServerBtn" class="control-btn server-btn" title="Switch Streaming Server" aria-label="Streaming Server">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                      <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                      <line x1="6" y1="6" x2="6.01" y2="6" />
+                      <line x1="6" y1="18" x2="6.01" y2="18" />
+                    </svg>
+                    <span id="playerServerText" class="server-label-text">Server 1</span>
+                    <span class="dropdown-arrow">▾</span>
+                  </button>
+                  <div id="serverMenuDropdown" class="server-dropdown hidden">
+                    <div class="server-dropdown-header">
+                      <span data-i18n="serverSelector">Select Server</span>
+                      <span class="server-mode-tip">Anti-Buffering Multi-Server</span>
+                    </div>
+                    <div class="server-options-list" id="serverOptionsList">
+                      <!-- Generated dynamically per channel -->
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Direct / CORS Proxy Toggle -->
                 <button id="playerProxyToggleBtn" class="proxy-toggle-btn" title="Toggle CORS Proxy mode" data-i18n-title="proxyTooltip">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

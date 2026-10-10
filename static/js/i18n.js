@@ -67,7 +67,12 @@ const translations = {
     statusOnline: "Online",
     statusConnecting: "Connecting...",
     statusBuffering: "Buffering...",
-    statusError: "Offline"
+    statusError: "Offline",
+    serverSelector: "Server",
+    serverTip: "Anti-Buffering Multi-Server",
+    tryNextServer: "Switch to Next Server",
+    autoSwitchedToast: "Auto-switched to {server} to remove buffering",
+    manualSwitchedToast: "Switched to {server}"
   },
   bn: {
     appTitle: "MAG Tv",
@@ -132,7 +137,12 @@ const translations = {
     statusOnline: "সক্রিয়",
     statusConnecting: "সংযোগ হচ্ছে...",
     statusBuffering: "বাফারিং হচ্ছে...",
-    statusError: "অফলাইন"
+    statusError: "অফলাইন",
+    serverSelector: "সার্ভার",
+    serverTip: "বাফার-মুক্ত মাল্টি-সার্ভার",
+    tryNextServer: "পরবর্তী সার্ভার চেষ্টা করুন",
+    autoSwitchedToast: "বাফারিং দূর করতে স্বয়ংক্রিয়ভাবে {server}-এ পরিবর্তন করা হয়েছে",
+    manualSwitchedToast: "{server}-এ পরিবর্তন করা হয়েছে"
   },
   hi: {
     appTitle: "MAG Tv",
@@ -197,7 +207,12 @@ const translations = {
     statusOnline: "ऑनलाइन",
     statusConnecting: "कनेक्ट हो रहा है...",
     statusBuffering: "बफरिंग...",
-    statusError: "ऑफलाइन"
+    statusError: "ऑफलाइन",
+    serverSelector: "सर्वर",
+    serverTip: "बफर-मुक्त मल्टी-सर्वर",
+    tryNextServer: "अगले सर्वर पर स्विच करें",
+    autoSwitchedToast: "बफरिंग हटाने के लिए {server} पर ऑटो-स्विच किया गया",
+    manualSwitchedToast: "{server} पर स्विच किया गया"
   },
   ur: {
     appTitle: "MAG Tv",
@@ -262,7 +277,12 @@ const translations = {
     statusOnline: "آن لائن",
     statusConnecting: "رابطہ ہو رہا ہے...",
     statusBuffering: "بفرنگ...",
-    statusError: "آف لائن"
+    statusError: "آف لائن",
+    serverSelector: "سرور",
+    serverTip: "اینٹی بفرنگ ملٹی سرور",
+    tryNextServer: "اگلے سرور پر جائیں",
+    autoSwitchedToast: "بفرنگ ختم کرنے کے لیے خودکار طور پر {server} پر سوئچ کیا گیا",
+    manualSwitchedToast: "{server} پر تبدیل کر دیا گیا"
   }
 };
 

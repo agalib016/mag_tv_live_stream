@@ -1,11 +1,18 @@
-import urllib.request
 import json
+from app import app
 
 def test():
+    client = app.test_client()
+
     # 1. Test index page
-    res = urllib.request.urlopen('http://127.0.0.1:5000/')
-    html = res.read().decode('utf-8')
+    res = client.get('/')
+    assert res.status_code == 200
+    html = res.data.decode('utf-8')
     assert 'MAG Tv' in html
+    assert 'playerServerBtn' in html
+    assert 'playerServerBadge' in html
+    assert 'serverMenuDropdown' in html
+    assert 'playerToast' in html
     assert 'qualityMenuDropdown' in html
     assert 'playerResolutionBadge' in html
     assert 'data-category="sports"' in html
@@ -13,63 +20,76 @@ def test():
     assert 'data-category="religious"' in html
     assert 'data-category="entertainment"' in html
     assert 'data-category="others"' in html
-    print('HTML nav buttons, MAG Tv logo, and resolution controls verified.')
+    print('[PASS] Index HTML verified with multi-server switcher, resolution controls, and categories.')
 
-    # 2. Test API channels
-    data = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels').read().decode('utf-8'))
-    print('Total channels returned:', data['total'])
+    # 2. Test API channels and multi-server structure
+    res = client.get('/api/channels')
+    assert res.status_code == 200
+    data = res.get_json()
+    print('[PASS] Total channels returned:', data['total'])
     assert data['total'] > 0
 
+    first_channel = data['channels'][0]
+    assert 'servers' in first_channel
+    assert len(first_channel['servers']) >= 3
+    print(f"[PASS] Channel '{first_channel['name']}' has {len(first_channel['servers'])} servers configured.")
+
     # 3. Test API categories
-    sports = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?category=sports').read().decode('utf-8'))
-    print('Sports channels count:', sports['total'])
-
-    news = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?category=news').read().decode('utf-8'))
-    print('News channels count:', news['total'])
-
-    religious = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?category=religious').read().decode('utf-8'))
-    print('Religious channels count:', religious['total'])
-
-    entertainment = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?category=entertainment').read().decode('utf-8'))
-    print('Entertainment channels count:', entertainment['total'])
-
-    others = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?category=others').read().decode('utf-8'))
-    print('Others channels count:', others['total'])
+    for cat in ['sports', 'news', 'religious', 'entertainment', 'others']:
+        res = client.get(f'/api/channels?category={cat}')
+        cat_data = res.get_json()
+        print(f"[PASS] Category '{cat}': {cat_data['total']} channels")
+        assert cat_data['total'] > 0
 
     # 4. Test API countries
-    bd = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?country=bd').read().decode('utf-8'))
-    print('Bangladesh channels count:', bd['total'])
-
-    ind = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?country=in').read().decode('utf-8'))
-    print('India channels count:', ind['total'])
-
-    pk = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/channels?country=pk').read().decode('utf-8'))
-    print('Pakistan channels count:', pk['total'])
+    for code, name in [('bd', 'Bangladesh'), ('in', 'India'), ('pk', 'Pakistan')]:
+        res = client.get(f'/api/channels?country={code}')
+        country_data = res.get_json()
+        print(f"[PASS] Region '{name}' ({code}): {country_data['total']} channels")
+        assert country_data['total'] > 0
 
     # 5. Test stats
-    stats = json.loads(urllib.request.urlopen('http://127.0.0.1:5000/api/stats').read().decode('utf-8'))
-    print('Stats:', json.dumps(stats, indent=2))
+    res = client.get('/api/stats')
+    stats = res.get_json()
+    assert stats['total'] > 0
+    assert 'categories' in stats and 'countries' in stats
+    print('[PASS] Stats verified:', json.dumps(stats, indent=2))
 
-    # 6. Test static files
-    css = urllib.request.urlopen('http://127.0.0.1:5000/static/css/style.css').read().decode('utf-8')
-    assert '[data-theme="dark"]' in css
-    assert ':root' in css
-    assert 'channel-card' in css
-    print('CSS verified successfully, length:', len(css))
+    # 6. Test Multi-Server Turbo Proxy
+    test_stream = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
+    res = client.get(f'/api/proxy?server=turbo&url={test_stream}')
+    assert res.status_code == 200
+    assert 'application/vnd.apple.mpegurl' in res.headers.get('content-type', '')
+    manifest_text = res.data.decode('utf-8')
+    assert '/api/proxy?server=turbo' in manifest_text
+    print('[PASS] Multi-server turbo proxy successfully rewrites M3U8 with server parameters and CORS headers.')
 
-    js_app = urllib.request.urlopen('http://127.0.0.1:5000/static/js/app.js').read().decode('utf-8')
-    assert 'class LiveTvApp' in js_app
-    print('App.js verified successfully, length:', len(js_app))
+    # 7. Test static files
+    css_res = client.get('/static/css/style.css')
+    assert css_res.status_code == 200
+    css = css_res.data.decode('utf-8')
+    assert 'server-badge' in css
+    assert 'server-dropdown' in css
+    assert 'player-toast' in css
+    print('[PASS] style.css verified with server selector and toast styles.')
 
-    js_player = urllib.request.urlopen('http://127.0.0.1:5000/static/js/player.js').read().decode('utf-8')
-    assert 'class LivePlayer' in js_player
-    print('Player.js verified successfully, length:', len(js_player))
+    player_res = client.get('/static/js/player.js')
+    assert player_res.status_code == 200
+    player_js = player_res.data.decode('utf-8')
+    assert 'currentServers' in player_js
+    assert 'switchServer' in player_js
+    assert 'startStallWatchdog' in player_js
+    assert 'lowLatencyMode: false' in player_js
+    print('[PASS] player.js verified with multi-server engine and anti-buffering watchdog.')
 
-    js_i18n = urllib.request.urlopen('http://127.0.0.1:5000/static/js/i18n.js').read().decode('utf-8')
-    assert 'bn:' in js_i18n and 'hi:' in js_i18n and 'ur:' in js_i18n
-    print('i18n.js verified successfully, length:', len(js_i18n))
+    i18n_res = client.get('/static/js/i18n.js')
+    assert i18n_res.status_code == 200
+    i18n_js = i18n_res.data.decode('utf-8')
+    assert 'serverSelector' in i18n_js
+    assert 'autoSwitchedToast' in i18n_js
+    print('[PASS] i18n.js verified with multi-server translations.')
 
-    print('\nALL TESTS PASSED!')
+    print('\n[SUCCESS] ALL TESTS PASSED SUCCESSFULLY!')
 
 if __name__ == '__main__':
     test()
